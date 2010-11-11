@@ -28,21 +28,20 @@ NEED_LINUX_IOCTL=y
 NEED_RFKILL=y
 
 ifdef CONFIG_LIBNL32
-  DRV_LIBS += -lnl-3
-  DRV_LIBS += -lnl-genl-3
+  DRV_LIBS += $(LIBNL_PATH)/lib/.libs/libnl-genl.a $(LIBNL_PATH)/lib/.libs/libnl.a -lm
   DRV_CFLAGS += -DCONFIG_LIBNL20
 ifndef LIBNL_PATH
   DRV_CFLAGS += -I/usr/include/libnl3
 endif
 else
   ifdef CONFIG_LIBNL_TINY
-    DRV_LIBS += -lnl-tiny
+    DRV_LIBS += $(LIBNL_PATH)/lib/.libs/libnl-genl.a $(LIBNL_PATH)/lib/.libs/libnl.a -lm
   else
-    DRV_LIBS += -lnl
+    DRV_LIBS += $(LIBNL_PATH)/lib/.libs/libnl-genl.a $(LIBNL_PATH)/lib/.libs/libnl.a -lm
   endif
 
   ifdef CONFIG_LIBNL20
-    DRV_LIBS += -lnl-genl
+    DRV_LIBS += $(LIBNL_PATH)/lib/.libs/libnl-genl.a $(LIBNL_PATH)/lib/.libs/libnl.a -lm
     DRV_CFLAGS += -DCONFIG_LIBNL20
   endif
 endif
