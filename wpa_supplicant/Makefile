@@ -1,6 +1,4 @@
-ifndef CC
-CC=gcc
-endif
+CC=$(CROSS_COMPILE)gcc
 
 ifndef CFLAGS
 CFLAGS = -MMD -O2 -Wall -g
@@ -12,6 +10,7 @@ PKG_CONFIG ?= pkg-config
 
 CFLAGS += -I../src
 CFLAGS += -I../src/utils
+CFLAGS += -I$(LIBNL_PATH)/include -I$(OPENSSL_PATH)/include
 
 -include .config
 
@@ -880,15 +879,15 @@ ifeq ($(CONFIG_TLS), openssl)
 ifdef TLS_FUNCS
 CFLAGS += -DEAP_TLS_OPENSSL
 OBJS += ../src/crypto/tls_openssl.o
-LIBS += -lssl
+LIBS += $(OPENSSL_PATH)/libssl.a
 endif
 OBJS += ../src/crypto/crypto_openssl.o
 OBJS_p += ../src/crypto/crypto_openssl.o
 ifdef NEED_FIPS186_2_PRF
 OBJS += ../src/crypto/fips_prf_openssl.o
 endif
-LIBS += -lcrypto
-LIBS_p += -lcrypto
+LIBS += $(OPENSSL_PATH)/libcrypto.a
+LIBS_p += $(OPENSSL_PATH)/libcrypto.a
 ifdef CONFIG_TLS_ADD_DL
 LIBS += -ldl
 LIBS_p += -ldl
@@ -1478,9 +1477,7 @@ EXTRALIBS += WbemUuid.Lib
 endif
 endif
 
-ifndef LDO
-LDO=$(CC)
-endif
+LDO=$(CROSS_COMPILE)gcc
 
 Q=@
 E=echo
