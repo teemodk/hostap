@@ -1346,6 +1346,11 @@ int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s,
 							    timeout_sec,
 							    timeout_usec);
 			}
+
+#ifdef ANDROID			
+			wpa_supplicant_req_new_scan(wpa_s, timeout_sec,
+						    timeout_usec);
+#endif
 		}
 	}
 	return 0;
