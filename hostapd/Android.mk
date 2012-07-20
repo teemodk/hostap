@@ -24,6 +24,12 @@ L_CFLAGS += -DVERSION_STR_POSTFIX=\"-$(PLATFORM_VERSION)\"
 # Set Android log name
 L_CFLAGS += -DANDROID_LOG_NAME=\"hostapd\"
 
+ifeq ($(BOARD_WLAN_DEVICE), bcmdhd)
+L_CFLAGS += -DANDROID_BRCM_P2P_PATCH
+endif
+
+L_CFLAGS += -DANDROID_P2P
+
 # Use Android specific directory for control interface sockets
 L_CFLAGS += -DCONFIG_CTRL_IFACE_CLIENT_DIR=\"/data/misc/wifi/sockets\"
 
