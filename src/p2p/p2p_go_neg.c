@@ -450,6 +450,20 @@ void p2p_reselect_channel(struct p2p_data *p2p,
 	}
 
 	/*
+	 * Try to see if the original channel is in the intersection. If
+	 * so, no need to change anything, as it already contains some
+	 * randomness.
+	 */
+	if (p2p_channels_includes(intersection, p2p->op_reg_class,
+				  p2p->op_channel)) {
+		wpa_msg(p2p->cfg->msg_ctx, MSG_DEBUG,
+			"P2P: Using original operating class and channel "
+			"(reg_class %u channel %u) from intersection",
+			p2p->op_reg_class, p2p->op_channel);
+		return;
+	}
+
+	/*
 	 * Fall back to whatever is included in the channel intersection since
 	 * no better options seems to be available.
 	 */
@@ -740,8 +754,37 @@ void p2p_process_go_neg_req(struct p2p_data *p2p, const u8 *sa,
 			goto fail;
 		}
 
-		if (go && p2p_go_select_channel(p2p, dev, &status) < 0)
-			goto fail;
+		if (go) {
+			struct p2p_channels intersection;
+			size_t i;
+			p2p_channels_intersect(&p2p->channels, &dev->channels,
+					       &intersection);
+			if (intersection.reg_classes == 0 ||
+			    intersection.reg_class[0].channels == 0) {
+				status = P2P_SC_FAIL_NO_COMMON_CHANNELS;
+				wpa_msg(p2p->cfg->msg_ctx, MSG_DEBUG,
+					"P2P: No common channels found");
+				goto fail;
+			}
+			for (i = 0; i < intersection.reg_classes; i++) {
+				struct p2p_reg_class *c;
+				c = &intersection.reg_class[i];
+				wpa_printf(MSG_DEBUG, "P2P: reg_class %u",
+					   c->reg_class);
+				wpa_hexdump(MSG_DEBUG, "P2P: channels",
+					    c->channel, c->channels);
+			}
+			if (!p2p->cfg->cfg_op_channel ||
+			    !p2p_channels_includes(&intersection,
+						   p2p->op_reg_class,
+						   p2p->op_channel))
+				p2p_reselect_channel(p2p, &intersection);
+
+			if (!p2p->ssid_set) {
+				p2p_build_ssid(p2p, p2p->ssid, &p2p->ssid_len);
+				p2p->ssid_set = 1;
+			}
+		}
 
 		dev->go_state = go ? LOCAL_GO : REMOTE_GO;
 		dev->oper_freq = p2p_channel_to_freq((const char *)
@@ -1112,8 +1155,36 @@ void p2p_process_go_neg_resp(struct p2p_data *p2p, const u8 *sa,
 		goto fail;
 	}
 
-	if (go && p2p_go_select_channel(p2p, dev, &status) < 0)
-		goto fail;
+	if (go) {
+		struct p2p_channels intersection;
+		size_t i;
+		p2p_channels_intersect(&p2p->channels, &dev->channels,
+				       &intersection);
+		if (intersection.reg_classes == 0 ||
+		    intersection.reg_class[0].channels == 0) {
+			status = P2P_SC_FAIL_NO_COMMON_CHANNELS;
+			wpa_msg(p2p->cfg->msg_ctx, MSG_DEBUG,
+				"P2P: No common channels found");
+			goto fail;
+		}
+		for (i = 0; i < intersection.reg_classes; i++) {
+			struct p2p_reg_class *c;
+			c = &intersection.reg_class[i];
+			wpa_printf(MSG_DEBUG, "P2P: reg_class %u",
+				   c->reg_class);
+			wpa_hexdump(MSG_DEBUG, "P2P: channels",
+				    c->channel, c->channels);
+		}
+		if (!p2p->cfg->cfg_op_channel ||
+		    !p2p_channels_includes(&intersection, p2p->op_reg_class,
+					   p2p->op_channel))
+			p2p_reselect_channel(p2p, &intersection);
+
+		if (!p2p->ssid_set) {
+			p2p_build_ssid(p2p, p2p->ssid, &p2p->ssid_len);
+			p2p->ssid_set = 1;
+		}
+	}
 
 	p2p_set_state(p2p, P2P_GO_NEG);
 	p2p_clear_timeout(p2p);
