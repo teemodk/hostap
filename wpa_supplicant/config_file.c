@@ -920,6 +920,8 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 	if (config->p2p_ignore_shared_freq)
 		fprintf(f, "p2p_ignore_shared_freq=%u\n",
 			config->p2p_ignore_shared_freq);
+	if (config->p2p_multi_chan)
+		fprintf(f, "p2p_multi_chan=%u\n", config->p2p_multi_chan);
 #endif /* CONFIG_P2P */
 	if (config->country[0] && config->country[1]) {
 		fprintf(f, "country=%c%c\n",
