@@ -5036,6 +5036,7 @@ static int wpa_supplicant_driver_cmd(struct wpa_supplicant *wpa_s, char *cmd,
 		ret = pno_stop(wpa_s);
 	else
 		ret = wpa_drv_driver_cmd(wpa_s, cmd, buf, buflen);
+out:
 	if (ret == 0)
 		ret = sprintf(buf, "%s\n", "OK");
 	return ret;
