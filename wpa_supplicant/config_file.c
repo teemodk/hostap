@@ -1010,6 +1010,9 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 	if (config->ignore_old_scan_res)
 		fprintf(f, "ignore_old_scan_res=%d\n",
 			config->ignore_old_scan_res);
+	if (config->concurrent_sched_scan)
+		fprintf(f, "concurrent_sched_scan=%u\n",
+			config->concurrent_sched_scan);
 }
 
 #endif /* CONFIG_NO_CONFIG_WRITE */

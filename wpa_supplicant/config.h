@@ -862,6 +862,12 @@ struct wpa_config {
 	 * allowing it to update the internal BSS table.
 	 */
 	int ignore_old_scan_res;
+
+	/*
+	 * concurrent_sched_scan - sched scan can run concurrently with normal
+	 * scan and no need to stop one to do the other.
+	 */
+	int concurrent_sched_scan;
 };
 
 
