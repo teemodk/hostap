@@ -2871,7 +2871,11 @@ static void p2p_prov_disc_cb(struct p2p_data *p2p, int success)
 			p2p_continue_find(p2p);
 		else if (p2p->user_initiated_pd) {
 			p2p->pending_action_state = P2P_PENDING_PD;
+#ifdef ANDROID_P2P
+			p2p_set_timeout(p2p, 0, 350000);
+#else
 			p2p_set_timeout(p2p, 0, 300000);
+#endif
 		}
 		return;
 	}
@@ -2888,7 +2892,11 @@ static void p2p_prov_disc_cb(struct p2p_data *p2p, int success)
 	/* Wait for response from the peer */
 	if (p2p->state == P2P_SEARCH)
 		p2p_set_state(p2p, P2P_PD_DURING_FIND);
+#ifdef ANDROID_P2P
+	p2p_set_timeout(p2p, 0, 350000);
+#else
 	p2p_set_timeout(p2p, 0, 200000);
+#endif
 }
 
 
@@ -3033,7 +3041,11 @@ static void p2p_go_neg_req_cb(struct p2p_data *p2p, int success)
 		os_get_random((u8 *) &r, sizeof(r));
 		timeout += r % 100000;
 	}
-	p2p_set_timeout(p2p, 0, timeout);
+#ifdef ANDROID_P2P
+	p2p_set_timeout(p2p, 0, 350000);
+#else
+	p2p_set_timeout(p2p, 0, success ? 200000 : 100000);
+#endif
 }
 
 
