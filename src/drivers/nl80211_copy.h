@@ -118,8 +118,9 @@
  *	to get a list of all present wiphys.
  * @NL80211_CMD_SET_WIPHY: set wiphy parameters, needs %NL80211_ATTR_WIPHY or
  *	%NL80211_ATTR_IFINDEX; can be used to set %NL80211_ATTR_WIPHY_NAME,
- *	%NL80211_ATTR_WIPHY_TXQ_PARAMS, %NL80211_ATTR_WIPHY_FREQ,
- *	%NL80211_ATTR_WIPHY_CHANNEL_TYPE, %NL80211_ATTR_WIPHY_RETRY_SHORT,
+ *	%NL80211_ATTR_WIPHY_TXQ_PARAMS, %NL80211_ATTR_WIPHY_FREQ (and the
+ *	attributes determining the channel width; this is used for setting
+ *	monitor mode channel),  %NL80211_ATTR_WIPHY_RETRY_SHORT,
  *	%NL80211_ATTR_WIPHY_RETRY_LONG, %NL80211_ATTR_WIPHY_FRAG_THRESHOLD,
  *	and/or %NL80211_ATTR_WIPHY_RTS_THRESHOLD.
  *	However, for setting the channel, see %NL80211_CMD_SET_CHANNEL
@@ -171,7 +172,7 @@
  *	%NL80211_ATTR_AKM_SUITES, %NL80211_ATTR_PRIVACY,
  *	%NL80211_ATTR_AUTH_TYPE and %NL80211_ATTR_INACTIVITY_TIMEOUT.
  *	The channel to use can be set on the interface or be given using the
- *	%NL80211_ATTR_WIPHY_FREQ and %NL80211_ATTR_WIPHY_CHANNEL_TYPE attrs.
+ *	%NL80211_ATTR_WIPHY_FREQ and the attributes determining channel width.
  * @NL80211_CMD_NEW_BEACON: old alias for %NL80211_CMD_START_AP
  * @NL80211_CMD_STOP_AP: Stop AP operation on the given interface
  * @NL80211_CMD_DEL_BEACON: old alias for %NL80211_CMD_STOP_AP
@@ -401,8 +402,7 @@
  *	a response while being associated to an AP on another channel.
  *	%NL80211_ATTR_IFINDEX is used to specify which interface (and thus
  *	radio) is used. %NL80211_ATTR_WIPHY_FREQ is used to specify the
- *	frequency for the operation and %NL80211_ATTR_WIPHY_CHANNEL_TYPE may be
- *	optionally used to specify additional channel parameters.
+ *	frequency for the operation.
  *	%NL80211_ATTR_DURATION is used to specify the duration in milliseconds
  *	to remain on the channel. This command is also used as an event to
  *	notify when the requested duration starts (it may take a while for the
@@ -440,12 +440,11 @@
  *	as an event indicating reception of a frame that was not processed in
  *	kernel code, but is for us (i.e., which may need to be processed in a
  *	user space application). %NL80211_ATTR_FRAME is used to specify the
- *	frame contents (including header). %NL80211_ATTR_WIPHY_FREQ (and
- *	optionally %NL80211_ATTR_WIPHY_CHANNEL_TYPE) is used to indicate on
- *	which channel the frame is to be transmitted or was received. If this
- *	channel is not the current channel (remain-on-channel or the
- *	operational channel) the device will switch to the given channel and
- *	transmit the frame, optionally waiting for a response for the time
+ *	frame contents (including header). %NL80211_ATTR_WIPHY_FREQ is used
+ *	to indicate on which channel the frame is to be transmitted or was
+ *	received. If this channel is not the current channel (remain-on-channel
+ *	or the operational channel) the device will switch to the given channel
+ *	and transmit the frame, optionally waiting for a response for the time
  *	specified using %NL80211_ATTR_DURATION. When called, this operation
  *	returns a cookie (%NL80211_ATTR_COOKIE) that will be included with the
  *	TX status event pertaining to the TX request.
@@ -473,8 +472,8 @@
  *	command is used as an event to indicate the that a trigger level was
  *	reached.
  * @NL80211_CMD_SET_CHANNEL: Set the channel (using %NL80211_ATTR_WIPHY_FREQ
- *	and %NL80211_ATTR_WIPHY_CHANNEL_TYPE) the given interface (identifed
- *	by %NL80211_ATTR_IFINDEX) shall operate on.
+ *	and the attributes determining channel width) the given interface
+ *	(identifed by %NL80211_ATTR_IFINDEX) shall operate on.
  *	In case multiple channels are supported by the device, the mechanism
  *	with which it switches channels is implementation-defined.
  *	When a monitor interface is given, it can only switch channel while
@@ -568,8 +567,8 @@
  *
  * @NL80211_CMD_CH_SWITCH_NOTIFY: An AP or GO may decide to switch channels
  *	independently of the userspace SME, send this event indicating
- *	%NL80211_ATTR_IFINDEX is now on %NL80211_ATTR_WIPHY_FREQ with
- *	%NL80211_ATTR_WIPHY_CHANNEL_TYPE.
+ *	%NL80211_ATTR_IFINDEX is now on %NL80211_ATTR_WIPHY_FREQ and the
+ *	attributes determining channel width.
  *
  * @NL80211_CMD_START_P2P_DEVICE: Start the given P2P Device, identified by
  *	its %NL80211_ATTR_WDEV identifier. It must have been created with
@@ -584,8 +583,33 @@
  *	station, due to particular reason. %NL80211_ATTR_CONN_FAILED_REASON
  *	is used for this.
  *
- * @NL80211_CMD_SET_MCAST_RATE: Change the rate used to send multicast frames
- *	for IBSS or MESH vif.
+ * @NL80211_CMD_SCAN_CANCEL: Stop currently running scan (both sw and hw).
+ *	This operation will eventually invoke %NL80211_CMD_SCAN_ABORTED
+ *	event, partial scan results will be available. Returns -ENOENT
+ *	if scan is not running.
+ *
+ * @NL80211_CMD_IM_SCAN_RESULT: Intermediate scan result notification event,
+ *	this event could be enabled with @NL80211_ATTR_IM_SCAN_RESULT
+ *	flag during @NL80211_CMD_TRIGGER_SCAN. This event contains
+ *	%NL80211_BSS_BSSID which is used to specify the BSSID of received
+ *	scan result and %NL80211_BSS_SIGNAL_MBM to indicate signal strength.
+ *	On reception of this notification, userspace may decide to stop earlier
+ *	currently running scan with (@NL80211_CMD_SCAN_CANCEL).
+ *
+ * @NL80211_CMD_ROAMING_SUPPORT: A notify event used to alert userspace
+ *      regarding changes in roaming support by the driver. If roaming is
+ *      disabled (marked by the presence of @NL80211_ATTR_ROAMING_DISABLED flag)
+ *      userspace should disable background scans and roaming attempts.
+ *
+ * @NL80211_CMD_AP_CH_SWITCH: Perform a channel switch in the driver (for
+ *	AP/GO).
+ *	%NL80211_ATTR_WIPHY_FREQ: new channel frequency.
+ *	%NL80211_ATTR_CH_SWITCH_BLOCK_TX: block tx on the current channel.
+ *	%NL80211_ATTR_CH_SWITCH_POST_BLOCK_TX: block tx on the target channel.
+ *	%NL80211_FREQ_ATTR_CH_SWITCH_COUNT: number of TBTT's until the channel
+ *	switch event.
+ *
+ * @NL80211_CMD_REQ_CH_SW: Request a channel switch from a GO/AP.
  *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
@@ -737,6 +761,19 @@ enum nl80211_commands {
 
 	NL80211_CMD_SET_MCAST_RATE,
 
+	/* leave some room for adding nl80211 commands for old kernels */
+	NL80211_CMD_SCAN_CANCEL = NL80211_CMD_CH_SWITCH_NOTIFY + 10,
+
+	NL80211_CMD_IM_SCAN_RESULT,
+
+	NL80211_CMD_ROAMING_SUPPORT,
+
+	/* set/cancel_priority is depcrecated. keep it for backward compat */
+	NL80211_CMD_SET_PRIORITY,
+	NL80211_CMD_CANCEL_PRIORITY,
+
+	NL80211_CMD_AP_CH_SWITCH,
+	NL80211_CMD_REQ_CH_SW,
 	/* add new commands above here */
 
 	/* used to define NL80211_CMD_MAX below */
@@ -773,14 +810,26 @@ enum nl80211_commands {
  *	/sys/class/ieee80211/<phyname>/index
  * @NL80211_ATTR_WIPHY_NAME: wiphy name (used for renaming)
  * @NL80211_ATTR_WIPHY_TXQ_PARAMS: a nested array of TX queue parameters
- * @NL80211_ATTR_WIPHY_FREQ: frequency of the selected channel in MHz
+ * @NL80211_ATTR_WIPHY_FREQ: frequency of the selected channel in MHz,
+ *	defines the channel together with the (deprecated)
+ *	%NL80211_ATTR_WIPHY_CHANNEL_TYPE attribute or the attributes
+ *	%NL80211_ATTR_CHANNEL_WIDTH and if needed %NL80211_ATTR_CENTER_FREQ1
+ *	and %NL80211_ATTR_CENTER_FREQ2
+ * @NL80211_ATTR_CHANNEL_WIDTH: u32 attribute containing one of the values
+ *	of &enum nl80211_chan_width, describing the channel width. See the
+ *	documentation of the enum for more information.
+ * @NL80211_ATTR_CENTER_FREQ1: Center frequency of the first part of the
+ *	channel, used for anything but 20 MHz bandwidth
+ * @NL80211_ATTR_CENTER_FREQ2: Center frequency of the second part of the
+ *	channel, used only for 80+80 MHz bandwidth
  * @NL80211_ATTR_WIPHY_CHANNEL_TYPE: included with NL80211_ATTR_WIPHY_FREQ
- *	if HT20 or HT40 are allowed (i.e., 802.11n disabled if not included):
+ *	if HT20 or HT40 are to be used (i.e., HT disabled if not included):
  *	NL80211_CHAN_NO_HT = HT not allowed (i.e., same as not including
  *		this attribute)
  *	NL80211_CHAN_HT20 = HT20 only
  *	NL80211_CHAN_HT40MINUS = secondary channel is below the primary channel
  *	NL80211_CHAN_HT40PLUS = secondary channel is above the primary channel
+ *	This attribute is now deprecated.
  * @NL80211_ATTR_WIPHY_RETRY_SHORT: TX retry limit for frames whose length is
  *	less than or equal to the RTS threshold; allowed range: 1..255;
  *	dot11ShortRetryLimit; u8
@@ -1140,7 +1189,9 @@ enum nl80211_commands {
  *	triggers.
  *
  * @NL80211_ATTR_SCHED_SCAN_INTERVAL: Interval between scheduled scan
- *	cycles, in msecs.
+ *	cycles, in msecs. If short interval is supported by the driver
+ *      and configured then this will be used only after the requested
+ *      number of short intervals
  *
  * @NL80211_ATTR_SCHED_SCAN_MATCH: Nested attribute with one or more
  *	sets of attributes to match during scheduled scans.  Only BSSs
@@ -1291,6 +1342,47 @@ enum nl80211_commands {
  *	association request when used with NL80211_CMD_NEW_STATION)
  *
  * @NL80211_ATTR_SCAN_FLAGS: scan request control flags (u32)
+ *
+ * @%NL80211_ATTR_IM_SCAN_RESULT: Flag attribute to enable intermediate
+ *	scan result notification event (%NL80211_CMD_IM_SCAN_RESULT)
+ *	for the %NL80211_CMD_TRIGGER_SCAN command.
+ *	When set: will notify on each new scan result in the cache.
+ *
+ * @%NL80211_ATTR_IM_SCAN_RESULT_MIN_RSSI: Intermediate event filtering.
+ *	When set: will notify only those new scan result whose signal
+ *	strength of probe response/beacon (in dBm) is stronger than this
+ *	negative value (usually: -20 dBm > X > -95 dBm).
+ *
+ * @%NL80211_ATTR_SCAN_MIN_DWELL: Minimum scan dwell time (in TUs), u32
+ *	attribute to setup minimum time to wait on each channel, if received
+ *	at least one probe response during this period will continue waiting
+ *	%NL80211_ATTR_SCAN_MAX_DWELL, otherwise will move to next channel.
+ *	Relevant only for active scan, used with %NL80211_CMD_TRIGGER_SCAN
+ *	command. This is optional attribute, so if it's not set driver should
+ *	use hardware default values.
+ * @%NL80211_ATTR_SCAN_MAX_DWELL: Maximum scan dwell time (in TUs), u32
+ *	attribute to setup maximum time to wait on each channel.
+ *	Relevant only for active scan, used with %NL80211_CMD_TRIGGER_SCAN
+ *	command. This is optional attribute, so if it's not set driver should
+ *	use hardware default values.
+ * @%NL80211_ATTR_SCAN_NUM_PROBE:  Attribute (u8) to setup number of probe
+ *	requests to transmit on each active scan channel, used with
+ *	%NL80211_CMD_TRIGGER_SCAN command.
+ *
+ * @NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL: interval between
+ *      each short interval scheduled scan cycle in msecs.
+ * @NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS: number of short
+ *      sched scan intervals before switching to the long interval
+ * @NL80211_ATTR_ROAMING_DISABLED: indicates that the driver can't do roaming
+ *      currently.
+ *
+ * @NL80211_ATTR_CH_SWITCH_COUNT: the number of TBTT's until the channel
+ *	switch event
+ * @NL80211_ATTR_CH_SWITCH_BLOCK_TX: block tx on the current channel before the
+ *	channel switch operation.
+ * @NL80211_ATTR_CH_SWITCH_POST_BLOCK_TX: block tx on the target channel after
+ *	the channel switch operation, should be set if the target channel is
+ *	DFS channel.
  *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -1555,6 +1647,26 @@ enum nl80211_attrs {
 
 	NL80211_ATTR_SCAN_FLAGS,
 
+	NL80211_ATTR_CHANNEL_WIDTH,
+	NL80211_ATTR_CENTER_FREQ1,
+	NL80211_ATTR_CENTER_FREQ2,
+
+	/* leave some room for new attributes in nl80211 updates */
+	NL80211_ATTR_IM_SCAN_RESULT = NL80211_ATTR_BG_SCAN_PERIOD + 10,
+	NL80211_ATTR_IM_SCAN_RESULT_MIN_RSSI,
+
+	NL80211_ATTR_SCAN_MIN_DWELL,
+	NL80211_ATTR_SCAN_MAX_DWELL,
+	NL80211_ATTR_SCAN_NUM_PROBE,
+
+	NL80211_ATTR_SCHED_SCAN_SHORT_INTERVAL,
+	NL80211_ATTR_SCHED_SCAN_NUM_SHORT_INTERVALS,
+
+	NL80211_ATTR_ROAMING_DISABLED,
+	NL80211_ATTR_CH_SWITCH_COUNT,
+	NL80211_ATTR_CH_SWITCH_BLOCK_TX,
+	NL80211_ATTR_CH_SWITCH_POST_BLOCK_TX,
+
 	/* add attributes here, update the policy in nl80211.c */
 
 	__NL80211_ATTR_AFTER_LAST,
@@ -1719,10 +1831,15 @@ struct nl80211_sta_flag_update {
  * @__NL80211_RATE_INFO_INVALID: attribute number 0 is reserved
  * @NL80211_RATE_INFO_BITRATE: total bitrate (u16, 100kbit/s)
  * @NL80211_RATE_INFO_MCS: mcs index for 802.11n (u8)
- * @NL80211_RATE_INFO_40_MHZ_WIDTH: 40 Mhz dualchannel bitrate
+ * @NL80211_RATE_INFO_40_MHZ_WIDTH: 40 MHz dualchannel bitrate
  * @NL80211_RATE_INFO_SHORT_GI: 400ns guard interval
  * @NL80211_RATE_INFO_BITRATE32: total bitrate (u32, 100kbit/s)
  * @NL80211_RATE_INFO_MAX: highest rate_info number currently defined
+ * @NL80211_RATE_INFO_VHT_MCS: MCS index for VHT (u8)
+ * @NL80211_RATE_INFO_VHT_NSS: number of streams in VHT (u8)
+ * @NL80211_RATE_INFO_80_MHZ_WIDTH: 80 MHz VHT rate
+ * @NL80211_RATE_INFO_80P80_MHZ_WIDTH: 80+80 MHz VHT rate
+ * @NL80211_RATE_INFO_160_MHZ_WIDTH: 160 MHz VHT rate
  * @__NL80211_RATE_INFO_AFTER_LAST: internal use
  */
 enum nl80211_rate_info {
@@ -1732,6 +1849,11 @@ enum nl80211_rate_info {
 	NL80211_RATE_INFO_40_MHZ_WIDTH,
 	NL80211_RATE_INFO_SHORT_GI,
 	NL80211_RATE_INFO_BITRATE32,
+	NL80211_RATE_INFO_VHT_MCS,
+	NL80211_RATE_INFO_VHT_NSS,
+	NL80211_RATE_INFO_80_MHZ_WIDTH,
+	NL80211_RATE_INFO_80P80_MHZ_WIDTH,
+	NL80211_RATE_INFO_160_MHZ_WIDTH,
 
 	/* keep last */
 	__NL80211_RATE_INFO_AFTER_LAST,
@@ -2440,11 +2562,46 @@ enum nl80211_ac {
 #define NL80211_TXQ_Q_BE	NL80211_AC_BE
 #define NL80211_TXQ_Q_BK	NL80211_AC_BK
 
+/**
+ * enum nl80211_channel_type - channel type
+ * @NL80211_CHAN_NO_HT: 20 MHz, non-HT channel
+ * @NL80211_CHAN_HT20: 20 MHz HT channel
+ * @NL80211_CHAN_HT40MINUS: HT40 channel, secondary channel
+ *	below the control channel
+ * @NL80211_CHAN_HT40PLUS: HT40 channel, secondary channel
+ *	above the control channel
+ */
 enum nl80211_channel_type {
 	NL80211_CHAN_NO_HT,
 	NL80211_CHAN_HT20,
 	NL80211_CHAN_HT40MINUS,
 	NL80211_CHAN_HT40PLUS
+};
+
+/**
+ * enum nl80211_chan_width - channel width definitions
+ *
+ * These values are used with the %NL80211_ATTR_CHANNEL_WIDTH
+ * attribute.
+ *
+ * @NL80211_CHAN_WIDTH_20_NOHT: 20 MHz, non-HT channel
+ * @NL80211_CHAN_WIDTH_20: 20 MHz HT channel
+ * @NL80211_CHAN_WIDTH_40: 40 MHz channel, the %NL80211_ATTR_CENTER_FREQ1
+ *	attribute must be provided as well
+ * @NL80211_CHAN_WIDTH_80: 80 MHz channel, the %NL80211_ATTR_CENTER_FREQ1
+ *	attribute must be provided as well
+ * @NL80211_CHAN_WIDTH_80P80: 80+80 MHz channel, the %NL80211_ATTR_CENTER_FREQ1
+ *	and %NL80211_ATTR_CENTER_FREQ2 attributes must be provided as well
+ * @NL80211_CHAN_WIDTH_160: 160 MHz channel, the %NL80211_ATTR_CENTER_FREQ1
+ *	attribute must be provided as well
+ */
+enum nl80211_chan_width {
+	NL80211_CHAN_WIDTH_20_NOHT,
+	NL80211_CHAN_WIDTH_20,
+	NL80211_CHAN_WIDTH_40,
+	NL80211_CHAN_WIDTH_80,
+	NL80211_CHAN_WIDTH_80P80,
+	NL80211_CHAN_WIDTH_160,
 };
 
 /**
@@ -2750,6 +2907,13 @@ enum nl80211_tx_power_setting {
  *	Note that the pattern matching is done as though frames were not
  *	802.11 frames but 802.3 frames, i.e. the frame is fully unpacked
  *	first (including SNAP header unpacking) and then matched.
+ * @NL80211_WOWLAN_ACTION: pattern action which can be either to wake up
+ *      on this pattern or drop it and avoid wake up. This can be used to
+ *      specify an excpetion/blacklist pattern that shouldn't cause wakeup
+ *      despite the packet matching another wowlan pattern. For example:
+ *      configure all IPv4 multicast to wake up except certain type of packets
+ *      This can be either NL80211_WOWLAN_ACTION_ALLOW or DROP.
+ *      If this attribute is missing the default would be ALLOW.
  * @NUM_NL80211_WOWLAN_PKTPAT: number of attributes
  * @MAX_NL80211_WOWLAN_PKTPAT: max attribute number
  */
@@ -2757,9 +2921,28 @@ enum nl80211_wowlan_packet_pattern_attr {
 	__NL80211_WOWLAN_PKTPAT_INVALID,
 	NL80211_WOWLAN_PKTPAT_MASK,
 	NL80211_WOWLAN_PKTPAT_PATTERN,
+	NL80211_WOWLAN_PKTPAT_ACTION = NL80211_WOWLAN_PKTPAT_PATTERN + 10,
 
 	NUM_NL80211_WOWLAN_PKTPAT,
 	MAX_NL80211_WOWLAN_PKTPAT = NUM_NL80211_WOWLAN_PKTPAT - 1,
+};
+
+
+/**
+ * enum nl80211_wowlan_action - WoWLAN packet pattern action
+ * @NL80211_WOWLAN_ACTION_ALLOW: this pattern should wake up the host
+ * and the packet should be forwarded to the host unless this packet
+ * matches a DROP rule.
+ * @NL80211_WOWLAN_ACTION_DROP: a packet containing this pattern shouldn't
+ * wake up the host.
+ */
+enum nl80211_wowlan_action {
+	NL80211_WOWLAN_ACTION_ALLOW,
+	NL80211_WOWLAN_ACTION_DROP,
+
+	/* keep last */
+	NUM_NL80211_WOWLAN_ACTION,
+	MAX_NL80211_WOWLAN_ACTION = NUM_NL80211_WOWLAN_ACTION - 1,
 };
 
 /**
@@ -3066,6 +3249,10 @@ enum nl80211_ap_sme_features {
  * @NL80211_FEATURE_NEED_OBSS_SCAN: The driver expects userspace to perform
  *	OBSS scans and generate 20/40 BSS coex reports. This flag is used only
  *	for drivers implementing the CONNECT API, for AUTH/ASSOC it is implied.
+ * @NL80211_FEATURE_SCHED_SCAN_INTERVALS: This driver supports using
+ *	short interval for sched scan and then switching to a longer
+ *	interval.
+ * @NL80211_FEATURE_AP_CH_SWITCH: This driver supports AP channel switch.
  */
 enum nl80211_feature_flags {
 	NL80211_FEATURE_SK_TX_STATUS			= 1 << 0,
@@ -3079,6 +3266,10 @@ enum nl80211_feature_flags {
 	NL80211_FEATURE_AP_SCAN				= 1 << 8,
 	NL80211_FEATURE_VIF_TXPOWER			= 1 << 9,
 	NL80211_FEATURE_NEED_OBSS_SCAN			= 1 << 10,
+
+	/* leave room for new feature flags */
+	NL80211_FEATURE_SCHED_SCAN_INTERVALS		= 1 << 20,
+	NL80211_FEATURE_AP_CH_SWITCH			= 1 << 21,
 };
 
 /**
