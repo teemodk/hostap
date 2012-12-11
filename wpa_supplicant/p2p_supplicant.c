@@ -203,6 +203,11 @@ static int wpas_p2p_scan(void *ctx, enum p2p_scan_type type, int freq,
 		break;
 	case P2P_SCAN_FULL:
 		break;
+	case P2P_SCAN_SPECIFIC:
+		social_channels[0] = freq;
+		social_channels[1] = 0;
+		params.freqs = social_channels;
+		break;
 	case P2P_SCAN_SOCIAL_PLUS_ONE:
 		social_channels[3] = freq;
 		params.freqs = social_channels;
@@ -2095,15 +2100,22 @@ void wpas_p2p_sd_response(struct wpa_supplicant *wpa_s, int freq,
 			resp_tlvs);
 }
 
-
+#ifdef ANDROID_P2P
+void wpas_p2p_sd_service_update(struct wpa_supplicant *wpa_s, int action)
+#else
 void wpas_p2p_sd_service_update(struct wpa_supplicant *wpa_s)
+#endif
 {
 	if (wpa_s->drv_flags & WPA_DRIVER_FLAGS_P2P_MGMT) {
 		wpa_drv_p2p_service_update(wpa_s);
 		return;
 	}
 	if (wpa_s->global->p2p)
+#ifdef ANDROID_P2P
+		p2p_sd_service_update(wpa_s->global->p2p, action);
+#else
 		p2p_sd_service_update(wpa_s->global->p2p);
+#endif
 }
 
 
@@ -2137,7 +2149,11 @@ void wpas_p2p_service_flush(struct wpa_supplicant *wpa_s)
 			      struct p2p_srv_upnp, list)
 		wpas_p2p_srv_upnp_free(usrv);
 
+#ifdef ANDROID_P2P
+	wpas_p2p_sd_service_update(wpa_s, SRV_FLUSH);
+#else
 	wpas_p2p_sd_service_update(wpa_s);
+#endif
 }
 
 
@@ -2153,7 +2169,11 @@ int wpas_p2p_service_add_bonjour(struct wpa_supplicant *wpa_s,
 	bsrv->resp = resp;
 	dl_list_add(&wpa_s->global->p2p_srv_bonjour, &bsrv->list);
 
+#ifdef ANDROID_P2P
+	wpas_p2p_sd_service_update(wpa_s, SRV_ADD);
+#else
 	wpas_p2p_sd_service_update(wpa_s);
+#endif
 	return 0;
 }
 
@@ -2167,7 +2187,11 @@ int wpas_p2p_service_del_bonjour(struct wpa_supplicant *wpa_s,
 	if (bsrv == NULL)
 		return -1;
 	wpas_p2p_srv_bonjour_free(bsrv);
+#ifdef ANDROID_P2P
+	wpas_p2p_sd_service_update(wpa_s, SRV_DEL);
+#else
 	wpas_p2p_sd_service_update(wpa_s);
+#endif
 	return 0;
 }
 
@@ -2190,7 +2214,11 @@ int wpas_p2p_service_add_upnp(struct wpa_supplicant *wpa_s, u8 version,
 	}
 	dl_list_add(&wpa_s->global->p2p_srv_upnp, &usrv->list);
 
+#ifdef ANDROID_P2P
+	wpas_p2p_sd_service_update(wpa_s, SRV_ADD);
+#else
 	wpas_p2p_sd_service_update(wpa_s);
+#endif
 	return 0;
 }
 
@@ -2204,7 +2232,11 @@ int wpas_p2p_service_del_upnp(struct wpa_supplicant *wpa_s, u8 version,
 	if (usrv == NULL)
 		return -1;
 	wpas_p2p_srv_upnp_free(usrv);
+#ifdef ANDROID_P2P
+	wpas_p2p_sd_service_update(wpa_s, SRV_DEL);
+#else
 	wpas_p2p_sd_service_update(wpa_s);
+#endif
 	return 0;
 }
 
