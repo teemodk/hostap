@@ -44,9 +44,6 @@
 #include "interworking.h"
 
 
-static int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s);
-
-
 static int wpas_temp_disabled(struct wpa_supplicant *wpa_s,
 			      struct wpa_ssid *ssid)
 {
@@ -1148,6 +1145,7 @@ static int _wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 {
 	struct wpa_scan_results *scan_res;
 	int ap = 0;
+	int sched_scan_res = 0;
 #ifndef CONFIG_NO_RANDOM_POOL
 	size_t i, num;
 #endif /* CONFIG_NO_RANDOM_POOL */
@@ -1190,6 +1188,8 @@ static int _wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 		wpa_supplicant_req_new_scan(wpa_s, 1, 0);
 		return -1;
 	}
+
+	sched_scan_res = data && data->scan_info.sched_scan;
 
 #ifndef CONFIG_NO_RANDOM_POOL
 	num = scan_res->num;
@@ -1266,11 +1266,12 @@ static int _wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 
 	wpa_scan_results_free(scan_res);
 
-	return wpas_select_network_from_last_scan(wpa_s);
+	return wpas_select_network_from_last_scan(wpa_s, sched_scan_res);
 }
 
 
-static int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s)
+int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s,
+				       int sched_scan_res)
 {
 	struct wpa_bss *selected;
 	struct wpa_ssid *ssid = NULL;
@@ -1350,9 +1351,15 @@ static int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s)
 				return 1;
 			}
 #endif /* CONFIG_INTERWORKING */
-			if (wpa_supplicant_req_sched_scan(wpa_s))
-				wpa_supplicant_req_new_scan(wpa_s, timeout_sec,
+
+			if (!wpa_s->conf->concurrent_sched_scan ||
+			    sched_scan_res ||
+			    !wpa_s->sched_scanning) {
+				if (wpa_supplicant_req_sched_scan(wpa_s))
+					wpa_supplicant_req_new_scan(wpa_s,
+							    timeout_sec,
 							    timeout_usec);
+			}
 		}
 	}
 	return 0;
@@ -1422,7 +1429,7 @@ int wpa_supplicant_fast_associate(struct wpa_supplicant *wpa_s)
 		return -1;
 	}
 
-	return wpas_select_network_from_last_scan(wpa_s);
+	return wpas_select_network_from_last_scan(wpa_s, 0);
 #endif /* CONFIG_NO_SCAN_PROCESSING */
 }
 
