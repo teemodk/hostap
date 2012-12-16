@@ -3465,6 +3465,7 @@ union wpa_event_data {
 	/**
 	 * struct scan_info - Optional data for EVENT_SCAN_RESULTS events
 	 * @aborted: Whether the scan was aborted
+	 * @sched_scan: Whether the scan results are from the sched scan
 	 * @freqs: Scanned frequencies in MHz (%NULL = all channels scanned)
 	 * @num_freqs: Number of entries in freqs array
 	 * @ssids: Scanned SSIDs (%NULL or zero-length SSID indicates wildcard
@@ -3473,6 +3474,7 @@ union wpa_event_data {
 	 */
 	struct scan_info {
 		int aborted;
+		int sched_scan;
 		const int *freqs;
 		size_t num_freqs;
 		struct wpa_driver_scan_ssid ssids[WPAS_MAX_SCAN_SSIDS];
