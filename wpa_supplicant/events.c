@@ -1158,19 +1158,6 @@ static int _wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 	wpa_supplicant_notify_scanning(wpa_s, 0);
 
 #ifdef CONFIG_P2P
-	if (own_request && wpa_s->global->p2p_cb_on_scan_complete &&
-	    !wpa_s->global->p2p_disabled &&
-	    wpa_s->global->p2p != NULL && !wpa_s->sta_scan_pending &&
-	    !wpa_s->scan_res_handler) {
-		wpa_s->global->p2p_cb_on_scan_complete = 0;
-		if (p2p_other_scan_completed(wpa_s->global->p2p) == 1) {
-			wpa_dbg(wpa_s, MSG_DEBUG, "P2P: Pending P2P operation "
-				"stopped scan processing");
-			wpa_s->sta_scan_pending = 1;
-			wpa_supplicant_req_scan(wpa_s, 5, 0);
-			return -1;
-		}
-	}
 	wpa_s->sta_scan_pending = 0;
 #endif /* CONFIG_P2P */
 
