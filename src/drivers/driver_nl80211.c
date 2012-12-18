@@ -10326,6 +10326,14 @@ static int wpa_driver_nl80211_driver_cmd_android(void *priv, char *cmd, char *bu
 		return nl80211_set_wowlan_triggers(bss, 1);
 	} else if( os_strcasecmp(cmd, "RXFILTER-STOP") == 0 ) {
 		return nl80211_set_wowlan_triggers(bss, 0);
+	/* useless commands in our case - do nothing */
+	} else if (os_strncasecmp(cmd, "SCAN-ACTIVE", 11) == 0 ||
+		   os_strncasecmp(cmd, "SCAN-PASSIVE", 12) == 0 ||
+		   os_strncasecmp(cmd, "BTCOEXMODE", 10) == 0 ||
+		   os_strncasecmp(cmd, "BTCOEXSCAN-START", 16) == 0 ||
+		   os_strncasecmp(cmd, "BTCOEXSCAN-STOP", 15) == 0 ||
+		   os_strncasecmp(cmd, "SETSUSPENDMODE", 14) == 0) {
+		return 0;
 	} else {
 		wpa_printf(MSG_ERROR, "Unsupported command: %s", cmd);
 		ret = -1;
