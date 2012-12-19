@@ -58,7 +58,13 @@
 #endif /* P2P_MAX_INITIAL_CONN_WAIT */
 
 #ifndef P2P_CONCURRENT_SEARCH_DELAY
+
+#ifdef ANDROID_P2P
+#define P2P_CONCURRENT_SEARCH_DELAY 0
+#else
 #define P2P_CONCURRENT_SEARCH_DELAY 500
+#endif /* ANDROID_P2P */
+
 #endif /* P2P_CONCURRENT_SEARCH_DELAY */
 
 enum p2p_group_removal_reason {
