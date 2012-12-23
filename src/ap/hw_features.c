@@ -633,6 +633,28 @@ int hostapd_check_ht_capab(struct hostapd_iface *iface)
 	return 0;
 }
 
+static void hostapd_auto_select_scan_cb(struct hostapd_iface *iface)
+{
+}
+
+
+static int hostapd_auto_select_channel(struct hostapd_iface *iface)
+{
+	struct wpa_driver_scan_params params;
+
+	/* TODO: we can scan only the current HW mode */
+	wpa_printf(MSG_DEBUG, "Scan for neighboring BSSes to select channel");
+	os_memset(&params, 0, sizeof(params));
+	if (hostapd_driver_scan(iface->bss[0], &params) < 0) {
+		wpa_printf(MSG_ERROR, "Failed to request a scan of "
+			   "neighboring BSSes");
+		return -1;
+	}
+
+	iface->scan_cb = hostapd_auto_select_scan_cb;
+	return 0;
+}
+
 
 /**
  * hostapd_select_hw_mode - Select the hardware mode
@@ -667,6 +689,24 @@ int hostapd_select_hw_mode(struct hostapd_iface *iface)
 			       "(%d) (hw_mode in hostapd.conf)",
 			       (int) iface->conf->hw_mode);
 		return -2;
+	}
+
+	/*
+	 * request a scan of neighboring BSSes and select the
+	 * channel automatically
+	 */
+	if (iface->conf->channel == 0) {
+		if (hostapd_auto_select_channel(iface)) {
+			wpa_printf(MSG_ERROR, "Channel not configured "
+				   "(hw_mode/channel in hostapd.conf) and "
+				   "automatic channel selection failed");
+			return -3;
+		} else {
+			wpa_printf(MSG_DEBUG, "Operating channel will be "
+				   "selected automatically");
+			/* will be completed async */
+			return 1;
+		}
 	}
 
 	ok = 0;
@@ -718,14 +758,8 @@ int hostapd_select_hw_mode(struct hostapd_iface *iface)
 			ok = 0;
 		}
 	}
-	if (iface->conf->channel == 0) {
-		/* TODO: could request a scan of neighboring BSSes and select
-		 * the channel automatically */
-		wpa_printf(MSG_ERROR, "Channel not configured "
-			   "(hw_mode/channel in hostapd.conf)");
-		return -3;
-	}
-	if (ok == 0 && iface->conf->channel != 0) {
+
+	if (ok == 0) {
 		hostapd_logger(iface->bss[0], NULL,
 			       HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_WARNING,
