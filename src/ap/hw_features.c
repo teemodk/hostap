@@ -648,8 +648,103 @@ int hostapd_check_ht_capab(struct hostapd_iface *iface,
 	return 0;
 }
 
+static int valid_ap_channel(struct hostapd_iface *iface, int chan)
+{
+	int j;
+	struct hostapd_channel_data *c;
+
+	/* don't allow AP on channel 14 - only JP 11b rates */
+	if (chan == 14)
+		return 0;
+
+	for (j = 0; j < iface->current_mode->num_channels; j++) {
+		c = &iface->current_mode->channels[j];
+		if (c->chan == chan)
+			return (c->flag & HOSTAPD_CHAN_DISABLED) ? 0 : 1;
+	}
+
+	/* channel not found */
+	return 0;
+}
+
+
+/* unreasonable number of APs to find on a channel. */
+#define MAX_AP_COUNT 10000
+
 static void hostapd_auto_select_scan_cb(struct hostapd_iface *iface)
 {
+	struct wpa_scan_results *scan_res;
+	size_t i, j;
+	int *channel_cnt;
+	int min_cnt, min_idx;
+	struct hostapd_channel_data *chan;
+
+	iface->scan_cb = NULL;
+
+	/* init all channel counters to 0 */
+	channel_cnt = os_calloc(iface->current_mode->num_channels, sizeof(int));
+	if (channel_cnt == NULL) {
+		hostapd_setup_interface_complete(iface, 1);
+		return;
+	}
+
+	scan_res = hostapd_driver_get_scan_results(iface->bss[0]);
+	if (scan_res == NULL) {
+		hostapd_setup_interface_complete(iface, 1);
+		goto free_chans;
+	}
+
+	/* increment channel counters according to scan results */
+	for (i = 0; i < scan_res->num; i++) {
+		struct wpa_scan_res *bss = scan_res->res[i];
+		for (j = 0; j < iface->current_mode->num_channels; j++) {
+			chan = &iface->current_mode->channels[j];
+			if (bss->freq == chan->freq) {
+				channel_cnt[j]++;
+				wpa_printf(MSG_DEBUG, "Have %d BSSes on ch %d",
+					   channel_cnt[j], chan->chan);
+				break;
+			}
+		}
+	}
+
+	min_idx = -1;
+	min_cnt = MAX_AP_COUNT;
+	for (j = 0; j < iface->current_mode->num_channels; j++) {
+		chan = &iface->current_mode->channels[j];
+		if (!valid_ap_channel(iface, chan->chan)) {
+			channel_cnt[j] = MAX_AP_COUNT;
+			continue;
+		}
+
+		if (channel_cnt[j] >= min_cnt)
+			continue;
+
+		min_cnt = channel_cnt[j];
+		min_idx = j;
+	}
+
+	if (min_idx == -1) {
+		wpa_printf(MSG_ERROR,
+			   "Could not select channel automatically");
+		hostapd_setup_interface_complete(iface, 1);
+		goto free_scan;
+	}
+
+	chan = &iface->current_mode->channels[min_idx];
+	wpa_printf(MSG_DEBUG, "Min APs found in channel %d (AP count %d)",
+		   chan->chan, min_cnt);
+
+	iface->conf->channel = chan->chan;
+
+	/* will complete interface setup */
+	hostapd_check_ht_capab(iface, scan_res);
+
+free_scan:
+	wpa_scan_results_free(scan_res);
+
+free_chans:
+	os_free(channel_cnt);
 }
 
 
