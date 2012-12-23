@@ -413,28 +413,16 @@ static int ieee80211n_check_40mhz_2g4(struct hostapd_iface *iface,
 }
 
 
-static void ieee80211n_check_scan(struct hostapd_iface *iface)
+static int ieee80211n_check_scan(struct hostapd_iface *iface,
+				 struct wpa_scan_results *scan_res)
 {
-	struct wpa_scan_results *scan_res;
 	int oper40;
 	int res;
-
-	/* Check list of neighboring BSSes (from scan) to see whether 40 MHz is
-	 * allowed per IEEE Std 802.11-2012, 10.15.3.2 */
-
-	iface->scan_cb = NULL;
-
-	scan_res = hostapd_driver_get_scan_results(iface->bss[0]);
-	if (scan_res == NULL) {
-		hostapd_setup_interface_complete(iface, 1);
-		return;
-	}
 
 	if (iface->current_mode->mode == HOSTAPD_MODE_IEEE80211A)
 		oper40 = ieee80211n_check_40mhz_5g(iface, scan_res);
 	else
 		oper40 = ieee80211n_check_40mhz_2g4(iface, scan_res);
-	wpa_scan_results_free(scan_res);
 
 	if (!oper40) {
 		wpa_printf(MSG_INFO, "20/40 MHz operation not permitted on "
@@ -447,6 +435,27 @@ static void ieee80211n_check_scan(struct hostapd_iface *iface)
 
 	res = ieee80211n_allowed_ht40_channel_pair(iface);
 	hostapd_setup_interface_complete(iface, !res);
+	return 1;
+}
+
+
+static void ieee80211n_get_res_and_check_scan(struct hostapd_iface *iface)
+{
+	struct wpa_scan_results *scan_res;
+
+	/* Check list of neighboring BSSes (from scan) to see whether 40 MHz is
+	 * allowed per IEEE Std 802.11-2012, 10.15.3.2 */
+
+	iface->scan_cb = NULL;
+
+	scan_res = hostapd_driver_get_scan_results(iface->bss[0]);
+	if (scan_res == NULL) {
+		hostapd_setup_interface_complete(iface, 1);
+		return;
+	}
+
+	ieee80211n_check_scan(iface, scan_res);
+	wpa_scan_results_free(scan_res);
 }
 
 
@@ -510,7 +519,7 @@ static int ieee80211n_check_40mhz(struct hostapd_iface *iface)
 	}
 	os_free(params.freqs);
 
-	iface->scan_cb = ieee80211n_check_scan;
+	iface->scan_cb = ieee80211n_get_res_and_check_scan;
 	return 1;
 }
 
@@ -615,7 +624,8 @@ static int ieee80211n_supported_ht_capab(struct hostapd_iface *iface)
 #endif /* CONFIG_IEEE80211N */
 
 
-int hostapd_check_ht_capab(struct hostapd_iface *iface)
+int hostapd_check_ht_capab(struct hostapd_iface *iface,
+			   struct wpa_scan_results *scan_res)
 {
 #ifdef CONFIG_IEEE80211N
 	int ret;
@@ -623,7 +633,12 @@ int hostapd_check_ht_capab(struct hostapd_iface *iface)
 		return 0;
 	if (!ieee80211n_supported_ht_capab(iface))
 		return -1;
-	ret = ieee80211n_check_40mhz(iface);
+	if (scan_res)
+		ret = ieee80211n_check_scan(iface, scan_res);
+	else
+		ret = ieee80211n_check_40mhz(iface);
+
+	/* sometimes the init should proceed async or fail */
 	if (ret)
 		return ret;
 	if (!ieee80211n_allowed_ht40_channel_pair(iface))
