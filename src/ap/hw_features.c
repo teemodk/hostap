@@ -653,10 +653,31 @@ static int valid_ap_channel(struct hostapd_iface *iface, int chan)
 {
 	int j;
 	struct hostapd_channel_data *c;
+	int *list;
 
 	/* don't allow AP on channel 14 - only JP 11b rates */
 	if (chan == 14)
 		return 0;
+
+	/* don't allow channels on the the ACS blacklist */
+	if (iface->conf->acs_blacklist) {
+		list = iface->conf->acs_blacklist;
+		for (j = 0; list[j] >= 0; j++)
+			if (chan == list[j])
+				return 0;
+	}
+
+	/* only allow channels from the ACS whitelist */
+	if (iface->conf->acs_whitelist) {
+		list = iface->conf->acs_whitelist;
+		for (j = 0; list[j] >= 0; j++)
+			if (chan == list[j])
+				break;
+
+		/* channel not found */
+		if (list[j] != chan)
+			return 0;
+	}
 
 	for (j = 0; j < iface->current_mode->num_channels; j++) {
 		c = &iface->current_mode->channels[j];

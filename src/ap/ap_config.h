@@ -520,6 +520,9 @@ struct hostapd_config {
 	u8 vht_oper_chwidth;
 	u8 vht_oper_centr_freq_seg0_idx;
 	u8 vht_oper_centr_freq_seg1_idx;
+
+	int *acs_blacklist;
+	int *acs_whitelist;
 };
 
 
