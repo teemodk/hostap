@@ -1262,6 +1262,7 @@ int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s,
 {
 	struct wpa_bss *selected;
 	struct wpa_ssid *ssid = NULL;
+	int normal_scan = FALSE;
 
 	selected = wpa_supplicant_pick_network(wpa_s, &ssid);
 
@@ -1339,6 +1340,19 @@ int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s,
 			}
 #endif /* CONFIG_INTERWORKING */
 
+#ifdef CONFIG_WPS
+			for (ssid = wpa_s->conf->ssid; ssid; ssid = ssid->next) {
+				if (!wpas_network_disabled(wpa_s, ssid) &&
+				    ssid->key_mgmt == WPA_KEY_MGMT_WPS) {
+					/*
+					 * Enable a normal scan as it's
+					 * preferable for the WPS operations.
+					 */
+					normal_scan = TRUE;
+					break;
+				}
+			}
+#endif /* CONFIG_WPS */
 			/*
 			 * If sched scan results were received but we didn't
 			 * connect then there's an AP with a matching SSID
@@ -1359,7 +1373,17 @@ int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s,
 				wpa_supplicant_cancel_sched_scan(wpa_s);
 				wpa_supplicant_req_new_scan(wpa_s, timeout_sec,
 							    timeout_usec);
+			} else if (normal_scan) {
+				wpa_supplicant_req_new_scan(wpa_s, timeout_sec,
+							    timeout_usec);
 			}
+
+#ifdef ANDROID
+			/* Don't trigger twice */
+			if (!wpa_s->scan_for_connection)
+				wpa_supplicant_req_new_scan(wpa_s, timeout_sec,
+							    timeout_usec);
+#endif
 		}
 	}
 	return 0;
