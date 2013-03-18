@@ -2476,9 +2476,10 @@ static void wnm_action_rx(struct wpa_supplicant *wpa_s, struct rx_action *rx)
 }
 
 static struct wpa_ssid *
-wpa_sc_add_network(struct wpa_supplicant *wpa_s,
-		   u8 *_ssid, u8 ssid_len,
-		   u8 *psk, u8 psk_len)
+_wpa_sc_add_network(struct wpa_supplicant *wpa_s,
+		    u8 *_ssid, u8 ssid_len,
+		    u8 *psk, u8 psk_len,
+		    int  wep)
 {
 	struct wpa_ssid *ssid;
 	char buf[64];
@@ -2502,11 +2503,18 @@ wpa_sc_add_network(struct wpa_supplicant *wpa_s,
 		os_memset(buf, 0, sizeof(buf));
 		os_memcpy(buf, psk, psk_len);
 
-		if (wpa_config_set(ssid, "key_mgmt", "WPA-PSK", 0) < 0 ||
-		    wpa_config_set_quoted(ssid, "psk", buf) < 0)
+		if (wep) {
+			if (wpa_config_set(ssid, "key_mgmt", "NONE", 0) ||
+			    wpa_config_set(ssid, "wep_key0", buf, 0) ||
+			    wpa_config_set(ssid, "wep_tx_keyidx", "0", 0))
+			goto fail;
+		} else {
+			if (wpa_config_set(ssid, "key_mgmt", "WPA-PSK", 0) ||
+			    wpa_config_set_quoted(ssid, "psk", buf))
 			goto fail;
 
-		wpa_config_update_psk(ssid);
+			wpa_config_update_psk(ssid);
+		}
 	}
 
 	/* support hidden ssids as well */
@@ -2520,6 +2528,41 @@ fail:
 	wpas_notify_network_removed(wpa_s, ssid);
 	wpa_config_remove_network(wpa_s->conf, ssid->id);
 	return NULL;
+}
+
+static int is_hex_key(u8 *str, int len)
+{
+	int i;
+
+	for (i = 0; i < len; i++) {
+		char c = str[i];
+		if (!((c >= '0' && c <= '9') ||
+		      (c >= 'a' && c <= 'f') ||
+		      (c >= 'A' && c <= 'F')))
+			return 0;
+	}
+	return 1;
+}
+
+/* return number of added networks */
+static int
+wpa_sc_add_network(struct wpa_supplicant *wpa_s,
+		   u8 *_ssid, u8 ssid_len,
+		   u8 *psk, u8 psk_len)
+{
+	int added = 0;
+
+	if (!_wpa_sc_add_network(wpa_s, _ssid, ssid_len, psk, psk_len, 0))
+		return added;
+	added++;
+
+	if (psk && is_hex_key(psk, psk_len) && (psk_len == 10 || psk_len == 26)) {
+		if (!_wpa_sc_add_network(wpa_s, _ssid, ssid_len, psk, psk_len, 1))
+			return added;
+		added++;
+	}
+
+	return added;
 }
 
 void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
