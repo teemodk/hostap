@@ -146,6 +146,9 @@ extern "C" {
 #define AP_STA_CONNECTED "AP-STA-CONNECTED "
 #define AP_STA_DISCONNECTED "AP-STA-DISCONNECTED "
 
+/* smart config events */
+#define SMART_CONFIG_EVENT_SYNCED "SMART-CONFIG-SYNC-COMPLETE "
+#define SMART_CONFIG_EVENT_DECODED "SMART-CONFIG-SUCCESS "
 
 /* BSS command information masks */
 
