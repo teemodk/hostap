@@ -3326,6 +3326,8 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 		/* don't start any new scan */
 		wpa_s->smart_config_in_sync = 0;
 
+		wpa_msg_ctrl(wpa_s, MSG_INFO, SMART_CONFIG_EVENT_SYNCED);
+
 		/* stop any ongoing scan */
 		wpa_supplicant_cancel_sched_scan(wpa_s);
 		wpa_supplicant_cancel_scan(wpa_s);
@@ -3368,6 +3370,8 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 
 		if (wpa_s->conf->update_config)
 			wpa_config_write(wpa_s->confname, wpa_s->conf);
+
+		wpa_msg_ctrl(wpa_s, MSG_INFO, SMART_CONFIG_EVENT_DECODED);
 
 		/* trigger a scan to find the new configured network */
 		wpa_supplicant_req_scan(wpa_s, 0, 0);
