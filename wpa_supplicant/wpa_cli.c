@@ -2722,7 +2722,6 @@ static struct wpa_cli_cmd wpa_cli_commands[] = {
 	{ "smart_config_stop", wpa_cli_cmd_smart_config_stop, NULL,
 	  cli_cmd_flag_none,
 	  "= stop smart config" },
-	  "= stop smart config" },
 #ifdef CONFIG_WIFI_DISPLAY
 	{ "wfd_subelem_set", wpa_cli_cmd_wfd_subelem_set, NULL,
 	  cli_cmd_flag_none,

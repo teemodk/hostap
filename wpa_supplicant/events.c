@@ -2472,6 +2472,96 @@ static void wpa_supplicant_event_unprot_disassoc(struct wpa_supplicant *wpa_s,
 }
 
 
+static void wnm_action_rx(struct wpa_supplicant *wpa_s, struct rx_action *rx)
+{
+	u8 action, mode;
+	const u8 *pos, *end;
+
+	if (rx->data == NULL || rx->len == 0)
+		return;
+
+	pos = rx->data;
+	end = pos + rx->len;
+	action = *pos++;
+
+	wpa_printf(MSG_DEBUG, "WNM: RX action %u from " MACSTR,
+		   action, MAC2STR(rx->sa));
+	switch (action) {
+	case WNM_BSS_TRANS_MGMT_REQ:
+		if (pos + 5 > end)
+			break;
+		wpa_printf(MSG_DEBUG, "WNM: BSS Transition Management "
+			   "Request: dialog_token=%u request_mode=0x%x "
+			   "disassoc_timer=%u validity_interval=%u",
+			   pos[0], pos[1], WPA_GET_LE16(pos + 2), pos[4]);
+		mode = pos[1];
+		pos += 5;
+		if (mode & 0x08)
+			pos += 12; /* BSS Termination Duration */
+		if (mode & 0x10) {
+			char url[256];
+			if (pos + 1 > end || pos + 1 + pos[0] > end) {
+				wpa_printf(MSG_DEBUG, "WNM: Invalid BSS "
+					   "Transition Management Request "
+					   "(URL)");
+				break;
+			}
+			os_memcpy(url, pos + 1, pos[0]);
+			url[pos[0]] = '\0';
+			wpa_msg(wpa_s, MSG_INFO, "WNM: ESS Disassociation "
+				"Imminent - session_info_url=%s", url);
+		}
+		break;
+	}
+}
+
+static struct wpa_ssid *
+wpa_sc_add_network(struct wpa_supplicant *wpa_s,
+		   u8 *_ssid, u8 ssid_len,
+		   u8 *psk, u8 psk_len)
+{
+	struct wpa_ssid *ssid;
+	char buf[64];
+
+	ssid = wpa_config_add_network(wpa_s->conf);
+	if (ssid == NULL)
+		return NULL;
+
+	wpas_notify_network_added(wpa_s, ssid);
+	wpa_config_set_network_defaults(ssid);
+	ssid->disabled = 1;
+
+	os_memset(buf, 0, sizeof(buf));
+	os_memcpy(buf, _ssid, ssid_len);
+	if (wpa_config_set_quoted(ssid, "ssid", buf) < 0)
+		goto fail;
+
+	if (!psk_len) {
+		wpa_config_set(ssid, "key_mgmt", "NONE", 0);
+	} else {
+		os_memset(buf, 0, sizeof(buf));
+		os_memcpy(buf, psk, psk_len);
+
+		if (wpa_config_set(ssid, "key_mgmt", "WPA-PSK", 0) < 0 ||
+		    wpa_config_set_quoted(ssid, "psk", buf) < 0)
+			goto fail;
+
+		wpa_config_update_psk(ssid);
+	}
+
+	/* support hidden ssids as well */
+	ssid->scan_ssid = 1;
+
+	ssid->disabled = 0;
+
+	return ssid;
+fail:
+	wpa_printf(MSG_ERROR, "%s: error adding new nework", __func__);
+	wpas_notify_network_removed(wpa_s, ssid);
+	wpa_config_remove_network(wpa_s->conf, ssid->id);
+	return NULL;
+}
+
 void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 			  union wpa_event_data *data)
 {
@@ -3209,7 +3299,8 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 						  wpa_s->max_remain_on_chan);
 		break;
 	}
-	case EVENT_SMART_CONFIG_DECODE:
+	case EVENT_SMART_CONFIG_DECODE: {
+		struct smart_config_decode *sc_data = &data->smart_config_decode;
 		wpa_dbg(wpa_s, MSG_DEBUG, "event smart config decode");
 
 		if (!wpa_s->smart_config_freq) {
@@ -3227,8 +3318,19 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 		/* smart config completed. stop it */
 		wpa_supplicant_smart_config_stop(wpa_s);
 
-		break;
+		/* add the new found network */
+		wpa_sc_add_network(wpa_s,
+				   sc_data->ssid, sc_data->ssid_len,
+				   sc_data->psk, sc_data->psk_len);
 
+		if (wpa_s->conf->update_config)
+			wpa_config_write(wpa_s->confname, wpa_s->conf);
+
+		/* trigger a scan to find the new configured network */
+		wpa_supplicant_req_scan(wpa_s, 0, 0);
+
+		break;
+	}
 	default:
 		wpa_msg(wpa_s, MSG_INFO, "Unknown event %d", event);
 		break;
