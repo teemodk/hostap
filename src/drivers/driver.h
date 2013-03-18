@@ -3069,6 +3069,9 @@ enum wpa_event_type {
 	EVENT_WNM,
 
 	EVENT_START_ROAMING,
+
+	EVENT_SMART_CONFIG_SYNC,
+	EVENT_SMART_CONFIG_DECODE,
 };
 
 
@@ -3695,6 +3698,18 @@ union wpa_event_data {
 		int ht_enabled;
 		int ch_offset;
 	} ch_switch;
+
+	struct smart_config_sync {
+		u32 freq;
+	} smart_config_sync;
+
+	struct smart_config_decode {
+		u8 *ssid;
+		u8 ssid_len;
+
+		u8 *psk;
+		u8 psk_len;
+	} smart_config_decode;
 };
 
 /**
