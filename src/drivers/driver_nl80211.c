@@ -2569,6 +2569,37 @@ static void wpa_driver_nl80211_event_receive(int sock, void *eloop_ctx,
 }
 
 
+static int get_country_handler(struct nl_msg *msg, void *arg)
+{
+	char * alpha2 = (char *) arg;
+	struct nlattr *tb_msg[NL80211_ATTR_MAX + 1];
+	struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
+
+	nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
+		  genlmsg_attrlen(gnlh, 0), NULL);
+	if (!tb_msg[NL80211_ATTR_REG_ALPHA2]) {
+		wpa_printf(MSG_DEBUG, "nl80211: No country information "
+			   "available");
+		return NL_SKIP;
+	}
+	os_memcpy(alpha2, nla_data(tb_msg[NL80211_ATTR_REG_ALPHA2]), 3);
+	return NL_SKIP;
+}
+
+static int nl80211_get_country(struct wpa_driver_nl80211_data *drv,
+				char *alpha2)
+{
+	struct nl_msg *msg;
+
+	msg = nlmsg_alloc();
+	if (!msg)
+		return -ENOMEM;
+
+	nl80211_cmd(drv, msg, 0, NL80211_CMD_GET_REG);
+	return send_and_recv_msgs(drv, msg, get_country_handler, alpha2);
+}
+
+
 /**
  * wpa_driver_nl80211_set_country - ask nl80211 to set the regulatory domain
  * @priv: driver_nl80211 private data
@@ -2583,7 +2614,10 @@ static int wpa_driver_nl80211_set_country(void *priv, const char *alpha2_arg)
 	struct i802_bss *bss = priv;
 	struct wpa_driver_nl80211_data *drv = bss->drv;
 	char alpha2[3];
+	char alpha2_res[3];
 	struct nl_msg *msg;
+	int count;
+	int ret;
 
 	msg = nlmsg_alloc();
 	if (!msg)
@@ -2598,7 +2632,24 @@ static int wpa_driver_nl80211_set_country(void *priv, const char *alpha2_arg)
 	NLA_PUT_STRING(msg, NL80211_ATTR_REG_ALPHA2, alpha2);
 	if (send_and_recv_msgs(drv, msg, NULL, NULL))
 		return -EINVAL;
-	return 0;
+
+	/* Validate coutry setting and retry up to 3 times if not match */
+	for (count = 0; count < 3; count++) {
+		os_memset(alpha2_res, 0, sizeof(alpha2));
+		ret = nl80211_get_country(drv, alpha2_res);
+		if (ret)
+			return ret;
+		if (os_strncmp(alpha2, alpha2_res, 3)) {
+			wpa_printf(MSG_DEBUG, "wpa_driver_nl80211_set_country:"
+					"retry country set after delay");
+			os_sleep(1, 0);
+		} else {
+			/* contry set is completed */
+			return 0;
+		}
+	}
+	wpa_printf(MSG_ERROR, "wpa_driver_nl80211_set_country: failed");
+	return -EINVAL;
 nla_put_failure:
 	nlmsg_free(msg);
 	return -EINVAL;
