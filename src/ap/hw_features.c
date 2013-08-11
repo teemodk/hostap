@@ -630,7 +630,7 @@ int hostapd_check_ht_capab(struct hostapd_iface *iface,
 #ifdef CONFIG_IEEE80211N
 	int ret;
 	if (!iface->conf->ieee80211n)
-		return 0;
+		goto out;
 	if (!ieee80211n_supported_ht_capab(iface))
 		return -1;
 	if (scan_res)
@@ -643,8 +643,12 @@ int hostapd_check_ht_capab(struct hostapd_iface *iface,
 		return ret;
 	if (!ieee80211n_allowed_ht40_channel_pair(iface))
 		return -1;
+out:
 #endif /* CONFIG_IEEE80211N */
 
+	/* we are in an async callback if we have scan results */
+	if (scan_res)
+		hostapd_setup_interface_complete(iface, 0);
 	return 0;
 }
 
