@@ -838,6 +838,7 @@ void set_prim_sec_chan(struct hostapd_iface *iface, int *channel_cnt,
 set:
 	iface->conf->channel = default_prim_chan;
 	iface->conf->secondary_channel = 0;
+	iface->conf->ht_capab &= ~HT_CAP_INFO_SUPP_CHANNEL_WIDTH_SET;
 }
 
 
